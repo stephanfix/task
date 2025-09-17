@@ -1,8 +1,10 @@
 # Frontend
 /node_modules
 /frontend
-/task_venv
 
+# Tasks service
+/task_venv
+/task_service/tasks.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
