@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  user-service:
+    build: ../user_service
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - DEBUG=true
+    volumes:
+      - ../user_service:/app
+      - user_data:/app/data
+
+  task-service:
+    build: .
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - DEBUG=true
+      - USER_SERVICE_URL=http://user-service:5001
+    volumes:
+      - .:/app
+      - task_data:/app/data
+    depends_on:
+      - user-service
+
+volumes:
+  user_data:
+  task_data:
