@@ -6,6 +6,9 @@
 /task_venv
 /task_service/tasks.db
 
+# user service
+/user_service/user.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
