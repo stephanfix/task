@@ -4,10 +4,10 @@
 
 # Tasks service
 /task_venv
-/task_service/tasks.db
+task_service/tasks.db
 
 # user service
-/user_service/user.db
+user_service/users.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
