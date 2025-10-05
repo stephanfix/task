@@ -11,8 +11,15 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
 
 # Database setup
-DATABASE = 'tasks.db'
+# DATABASE = 'tasks.db' replaced
+DATABASE = os.environ.get('DATABASE', 'tasks.db')
 USER_SERVICE_URL = os.environ.get('USER_SERVICE_URL', 'http://localhost:5001')
+
+# Ensure data directory exists if using volume mount
+def ensure_data_directory():
+    db_dir = os.path.dirname(DATABASE)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -21,6 +28,7 @@ def get_db_connection():
 
 def init_db():
     """Initialize the database with tasks table"""
+    ensure_data_directory()
     conn = get_db_connection()
     conn.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
@@ -395,6 +403,7 @@ if __name__ == '__main__':
     
     print(f"Starting Task Service on port {port}")
     print(f"User Service URL: {USER_SERVICE_URL}")
+    print(f"Database path: {DATABASE}")
     print(f"Health check: http://localhost:{port}/health")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

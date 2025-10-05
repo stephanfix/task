@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # User Service
+  user-service:
+    build: ./user_service
+    ports:
+      - "5001:5001"
+    volumes:
+      # Persist SQLite database outside container
+      - ./data/user_service:/app/data
+    environment:
+      - DATABASE=/app/data/users.db
+      - DEBUG=True
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Task Service  
+  task-service:
+    build: ./task_service
+    ports:
+      - "5002:5002"
+    volumes:
+      # Persist SQLite database outside container
+      - ./data/task_service:/app/data
+    environment:
+      - DATABASE=/app/data/tasks.db
+      - USER_SERVICE_URL=http://user-service:5001
+      - DEBUG=True
+    depends_on:
+      - user-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (optional - if containerized)
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - task-service
+    environment:
+      - REACT_APP_USER_SERVICE_URL=http://localhost:5001
+      - REACT_APP_TASK_SERVICE_URL=http://localhost:5002
+
+volumes:
+  # Named volumes for easier management
+  user_data:
+    driver: local
+  task_data:  
+    driver: local
