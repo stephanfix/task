@@ -3,15 +3,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 import hashlib
-import uuid
-import datetime
 import os
+from datetime import datetime
+import traceback
+import sys
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
 
 # Database setup
-# DATABASE = 'users.db' (replaceed)
 DATABASE = os.environ.get('DATABASE', 'users.db')
 
 # Ensure the database file exists
@@ -27,20 +27,22 @@ def get_db_connection():
 
 def init_db():
     """Initialize the database with user table"""
+    print("Initializing database...", file=sys.stderr)
     ensure_data_directory()
     conn = get_db_connection()
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMP,
             last_login TEXT
         )
     ''')
     conn.commit()
     conn.close()
+    print("Database initialized successfully!", file=sys.stderr)
 
 def hash_password(password):
     """Simple password hashing (use bcrypt in production)"""
@@ -53,19 +55,44 @@ def verify_password(password, password_hash):
 # Routes
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'user-service',
-        'timestamp': datetime.datetime.now().isoformat()
-    })
+    """
+    Health check endpoint for Kubernetes probes.
+    Returns 200 if service is healthy.
+    """
+    try:
+        # Test database connection
+        conn = get_db_connection()
+        conn.execute('SELECT 1')
+        conn.close()
+        
+        return jsonify({
+            'status': 'healthy',
+            'service': 'user-service',
+            'timestamp': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'service': 'user-service',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 503  # 503 = Service Unavailable
 
-@app.route('/api/users/register', methods=['POST'])
+@app.route('/api/users/register', methods=['POST', 'OPTIONS'])
 def register_user():
     """Register a new user"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    print("=== REGISTER REQUEST ===", file=sys.stderr)
+    print(f"Content-Type: {request.content_type}", file=sys.stderr)
+    print(f"Raw data: {request.data}", file=sys.stderr)
+
     try:
         data = request.get_json()
-        
+        print(f"Parsed JSON: {data}", file=sys.stderr)
+
         # Validate required fields
         if not all(k in data for k in ('username', 'email', 'password')):
             return jsonify({'error': 'Missing required fields'}), 400
@@ -82,46 +109,54 @@ def register_user():
         if '@' not in email:
             return jsonify({'error': 'Invalid email format'}), 400
         
+        print(f"Username: {username}, Email: {email}", file=sys.stderr)
+        
         conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # Check if user already exists
-        existing_user = conn.execute(
-            'SELECT id FROM users WHERE username = ? OR email = ?',
-            (username, email)
-        ).fetchone()
-        
-        if existing_user:
-            conn.close()
-            return jsonify({'error': 'Username or email already exists'}), 409
-        
-        # Create new user
-        user_id = str(uuid.uuid4())
+        # Hash password
         password_hash = hash_password(password)
-        created_at = datetime.datetime.now().isoformat()
         
-        conn.execute(
-            'INSERT INTO users (id, username, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
-            (user_id, username, email, password_hash, created_at)
+        # Explicitly set created_at to avoid SQLite DEFAULT issues
+        created_at = datetime.now().isoformat()
+        
+        # Insert new user
+        cursor.execute(
+            'INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
+            (username, email, password_hash, created_at)
         )
         conn.commit()
+        user_id = cursor.lastrowid
         conn.close()
         
+        print(f"User created successfully: ID={user_id}", file=sys.stderr)
+        
         return jsonify({
-            'message': 'User created successfully',
+            'message': 'User registered successfully',
             'user': {
                 'id': user_id,
                 'username': username,
-                'email': email,
-                'created_at': created_at
+                'email': email
             }
         }), 201
         
+    except sqlite3.IntegrityError as e:
+        print(f"IntegrityError: {str(e)}", file=sys.stderr)
+        return jsonify({'error': 'Username or email already exists'}), 409
+        
     except Exception as e:
-        return jsonify({'error': 'Internal server error'}), 500
+        print(f"EXCEPTION: {str(e)}", file=sys.stderr)
+        print(f"Exception type: {type(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
-@app.route('/api/users/login', methods=['POST'])
+@app.route('/api/users/login', methods=['POST', 'OPTIONS'])
 def login_user():
     """Authenticate a user"""
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     try:
         data = request.get_json()
         
@@ -142,7 +177,7 @@ def login_user():
             return jsonify({'error': 'Invalid username or password'}), 401
         
         # Update last login
-        last_login = datetime.datetime.now().isoformat()
+        last_login = datetime.now().isoformat()
         conn.execute(
             'UPDATE users SET last_login = ? WHERE id = ?',
             (last_login, user['id'])
@@ -155,15 +190,16 @@ def login_user():
             'user': {
                 'id': user['id'],
                 'username': user['username'],
-                'email': user['email'],
-                'last_login': last_login
+                'email': user['email']
             }
         }), 200
         
     except Exception as e:
+        print(f"Login error: {str(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/users/profile/<user_id>', methods=['GET'])
+@app.route('/api/users/profile/<int:user_id>', methods=['GET'])
 def get_user_profile(user_id):
     """Get user profile by ID"""
     try:
@@ -188,6 +224,8 @@ def get_user_profile(user_id):
         }), 200
         
     except Exception as e:
+        print(f"Profile error: {str(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/users', methods=['GET'])
@@ -213,6 +251,8 @@ def list_users():
         return jsonify({'users': user_list}), 200
         
     except Exception as e:
+        print(f"List users error: {str(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
@@ -223,8 +263,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('DEBUG', 'True').lower() == 'true'
     
-    print(f"Starting User Service on port {port}")
-    print(f"Database path: {DATABASE}")
-    print(f"Health check: http://localhost:{port}/health")
+    print(f"Starting User Service on port {port}", file=sys.stderr)
+    print(f"Database path: {DATABASE}", file=sys.stderr)
+    print(f"Health check: http://localhost:{port}/health", file=sys.stderr)
     
     app.run(host='0.0.0.0', port=port, debug=debug)

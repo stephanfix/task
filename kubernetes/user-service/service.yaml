@@ -1,0 +1,23 @@
+# kubernetes/user-service/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: task-manager
+  labels:
+    app: user-service
+spec:
+  # Type of service
+  # ClusterIP = only accessible within the cluster
+  type: ClusterIP
+  
+  # Which pods does this service route traffic to?
+  selector:
+    app: user-service
+  
+  # Port mapping
+  ports:
+  - name: http
+    port: 5001        # Port other services use to connect
+    targetPort: 5001  # Port on the container
+    protocol: TCP

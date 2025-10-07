@@ -1,0 +1,40 @@
+# kubernetes/persistent-volumes.yaml
+---
+# PersistentVolume for User Service
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: user-service-pv
+  labels:
+    type: local
+    app: user-service
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  # This points to the mounted directory inside Minikube
+  hostPath:
+    path: "/host-data/user_service"
+    type: DirectoryOrCreate
+
+---
+# PersistentVolume for Task Service
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-service-pv
+  labels:
+    type: local
+    app: task-service
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  # This points to the mounted directory inside Minikube
+  hostPath:
+    path: "/host-data/task_service"
+    type: DirectoryOrCreate

@@ -1,0 +1,20 @@
+# kubernetes/user-service/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: user-service-pvc
+  namespace: task-manager
+  labels:
+    app: user-service
+spec:
+  # How to access the storage
+  accessModes:
+    - ReadWriteOnce  # Can be mounted by one node at a time
+  
+  # How much storage to request
+  resources:
+    requests:
+      storage: 1Gi
+  
+  # Storage class (using manual for host path mounting)
+  storageClassName: manual

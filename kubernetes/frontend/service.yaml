@@ -1,0 +1,20 @@
+# kubernetes/frontend/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: task-manager
+  labels:
+    app: frontend
+spec:
+  type: NodePort  # Allows external access through Minikube
+  
+  selector:
+    app: frontend
+  
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30080  # Access via Minikube IP on this port
+    protocol: TCP
