@@ -1,0 +1,162 @@
+# user_service/app.py
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+from config import get_config
+import os
+
+# Create Flask app
+app = Flask(__name__)
+
+# Load configuration
+env = os.getenv('FLASK_ENV', 'development')
+app.config.from_object(get_config(env))
+
+# Initialize app with config
+get_config(env).init_app(app)
+
+# Setup CORS
+CORS(app, origins=app.config['CORS_ORIGINS'])
+
+
+def get_db():
+    """Get database connection using config"""
+    conn = sqlite3.connect(app.config['DATABASE_PATH'])
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Initialize database with schema"""
+    conn = get_db()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'user-service',
+        'environment': os.getenv('FLASK_ENV', 'development')
+    }), 200
+
+
+@app.route('/api/users/register', methods=['POST'])
+def register():
+    """Register a new user"""
+    data = request.get_json()
+    
+    # Validate required fields
+    if not all(k in data for k in ['username', 'email', 'password']):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    try:
+        conn = get_db()
+        password_hash = generate_password_hash(data['password'])
+        
+        conn.execute(
+            'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+            (data['username'], data['email'], password_hash)
+        )
+        conn.commit()
+        
+        # Get the created user
+        user = conn.execute(
+            'SELECT id, username, email, created_at FROM users WHERE username = ?',
+            (data['username'],)
+        ).fetchone()
+        
+        conn.close()
+        
+        return jsonify({
+            'message': 'User registered successfully',
+            'user': dict(user)
+        }), 201
+        
+    except sqlite3.IntegrityError as e:
+        return jsonify({'error': 'Username or email already exists'}), 409
+    except Exception as e:
+        if app.config['DEBUG']:
+            return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/users/login', methods=['POST'])
+def login():
+    """Login user"""
+    data = request.get_json()
+    
+    if not all(k in data for k in ['username', 'password']):
+        return jsonify({'error': 'Missing credentials'}), 400
+    
+    try:
+        conn = get_db()
+        user = conn.execute(
+            'SELECT * FROM users WHERE username = ?',
+            (data['username'],)
+        ).fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user['password_hash'], data['password']):
+            return jsonify({
+                'message': 'Login successful',
+                'user': {
+                    'id': user['id'],
+                    'username': user['username'],
+                    'email': user['email'],
+                    'created_at': user['created_at']
+                }
+            }), 200
+        
+        return jsonify({'error': 'Invalid credentials'}), 401
+        
+    except Exception as e:
+        if app.config['DEBUG']:
+            return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/users/profile/<int:user_id>', methods=['GET'])
+def get_profile(user_id):
+    """Get user profile"""
+    try:
+        conn = get_db()
+        user = conn.execute(
+            'SELECT id, username, email, created_at FROM users WHERE id = ?',
+            (user_id,)
+        ).fetchone()
+        conn.close()
+        
+        if user:
+            return jsonify({'user': dict(user)}), 200
+        return jsonify({'error': 'User not found'}), 404
+        
+    except Exception as e:
+        if app.config['DEBUG']:
+            return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+if __name__ == '__main__':
+    init_db()
+    print(f"🚀 User Service starting in {env} mode")
+    print(f"📊 Database: {app.config['DATABASE_PATH']}")
+    print(f"🔧 Debug: {app.config['DEBUG']}")
+    
+    app.run(
+        host=app.config['HOST'],
+        port=app.config['PORT'],
+        debug=app.config['DEBUG']
+    )

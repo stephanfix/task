@@ -1,0 +1,98 @@
+# docker-compose.yml (Root directory)
+version: '3.8'
+
+services:
+  # User Service
+  user-service:
+    build: 
+      context: ./user_service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - DEBUG=false
+      # Add DATABASE
+      - DATABASE=/app/data/users.db
+    volumes:
+      #- user_data:/app/data (replaced)
+      # move data to host machine for persistence
+      - ./data/user_service:/app/data
+    networks:
+      - microservices
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Task Service
+  task-service:
+    build: 
+      context: ./task_service
+      dockerfile: Dockerfile
+    container_name: task-service
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - DEBUG=false
+      - USER_SERVICE_URL=http://user-service:5001
+      # Add DATABASE
+      - DATABASE=/app/data/tasks.db
+    volumes:
+      #- task_data:/app/data (replaced)
+      - ./data/task_service:/app/data
+    networks:
+      - microservices
+    depends_on:
+      user-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:80"
+    networks:
+      - microservices
+    depends_on:
+      user-service:
+        condition: service_healthy
+      task-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  microservices:
+    driver: bridge
+    name: task-manager-network
+
+volumes:
+  user_data:
+    name: task-manager-user-data
+    # local storage for user data
+    driver: local
+  task_data:
+    name: task-manager-task-data
+    # local storage for task data
+    driver: local

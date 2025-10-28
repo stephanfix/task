@@ -1,3 +1,6 @@
+# Enable config loading from .env files
+from dotenv import load_dotenv
+load_dotenv('.env.development')  # Load environment variables
 # user_service/app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -7,9 +10,17 @@ import os
 from datetime import datetime
 import traceback
 import sys
+from config import get_config  # .env config loader
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend communication
+
+# Load configuration
+env = os.getenv('FLASK_ENV', 'development')
+app.config.from_object(get_config(env))
+get_config(env).init_app(app)
+
+# Setup CORS with configured origins
+CORS(app, origins=app.config['CORS_ORIGINS'])
 
 # Database setup
 DATABASE = os.environ.get('DATABASE', 'users.db')
@@ -20,10 +31,21 @@ def ensure_data_directory():
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
 
+# def get_db():
+#     """Get database connection using config"""
+#     conn = sqlite3.connect(app.config['DATABASE_PATH'])
+#     conn.row_factory = sqlite3.Row
+#     return conn
+
 def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection using config"""
+    try:
+        conn = sqlite3.connect(app.config['DATABASE_PATH'])
+        conn.row_factory = sqlite3.Row
+        return conn
+    except Exception as e:
+        print(f"ERROR connecting to database: {e}", file=sys.stderr)
+        raise
 
 def init_db():
     """Initialize the database with user table"""
@@ -256,15 +278,13 @@ def list_users():
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    # Initialize database on startup
     init_db()
+    print(f"🚀 User Service starting in {env} mode")
+    print(f"📊 Database: {app.config['DATABASE_PATH']}")
+    print(f"🔧 Debug: {app.config['DEBUG']}")
     
-    # Run the service
-    port = int(os.environ.get('PORT', 5001))
-    debug = os.environ.get('DEBUG', 'True').lower() == 'true'
-    
-    print(f"Starting User Service on port {port}", file=sys.stderr)
-    print(f"Database path: {DATABASE}", file=sys.stderr)
-    print(f"Health check: http://localhost:{port}/health", file=sys.stderr)
-    
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(
+        host=app.config['HOST'],
+        port=app.config['PORT'],
+        debug=app.config['DEBUG']
+    )

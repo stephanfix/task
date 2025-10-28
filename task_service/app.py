@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv('.env.development')  # Load environment variables
 # task_service/app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -7,13 +9,24 @@ from datetime import datetime
 import requests
 import traceback
 import sys
+from config import get_config 
 
 app = Flask(__name__)
-CORS(app)
+
+# Load configuration
+env = os.getenv('FLASK_ENV', 'development')
+app.config.from_object(get_config(env))
+get_config(env).init_app(app)
+
+# Setup CORS with configured origins
+CORS(app, origins=app.config['CORS_ORIGINS'])
 
 # Database configuration
 DATABASE = os.getenv('DATABASE', '/app/data/tasks.db')
-USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', 'http://localhost:5001')
+
+# USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', 'http://localhost:5001')
+# Replaced with config value
+USER_SERVICE_URL = app.config['USER_SERVICE_URL']
 
 print(f"=== TASK SERVICE STARTING ===", file=sys.stderr)
 print(f"DATABASE: {DATABASE}", file=sys.stderr)
@@ -27,9 +40,9 @@ def ensure_data_directory():
         print(f"Created directory: {db_dir}", file=sys.stderr)
 
 def get_db_connection():
-    """Create a database connection"""
+    """Get database connection using config"""
     try:
-        conn = sqlite3.connect(DATABASE)
+        conn = sqlite3.connect(app.config['DATABASE_PATH'])
         conn.row_factory = sqlite3.Row
         return conn
     except Exception as e:
@@ -358,9 +371,21 @@ def task_stats(user_id):
         traceback.print_exc(file=sys.stderr)
         return jsonify({'error': 'Internal server error'}), 500
 
+# if __name__ == '__main__':
+#     print(f"Starting task service...", file=sys.stderr)
+#     print(f"Database path: {DATABASE}", file=sys.stderr)
+#     print(f"User service URL: {USER_SERVICE_URL}", file=sys.stderr)
+#     init_db()
+#     app.run(host='0.0.0.0', port=5002, debug=True)
+
 if __name__ == '__main__':
-    print(f"Starting task service...", file=sys.stderr)
-    print(f"Database path: {DATABASE}", file=sys.stderr)
-    print(f"User service URL: {USER_SERVICE_URL}", file=sys.stderr)
     init_db()
-    app.run(host='0.0.0.0', port=5002, debug=True)
+    print(f"🚀 Task Service starting in {env} mode")
+    print(f"📊 Database: {app.config['DATABASE_PATH']}")
+    print(f"🔧 Debug: {app.config['DEBUG']}")
+    
+    app.run(
+        host=app.config['HOST'],
+        port=app.config['PORT'],
+        debug=app.config['DEBUG']
+    )
