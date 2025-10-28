@@ -22,7 +22,8 @@ get_config(env).init_app(app)
 CORS(app, origins=app.config['CORS_ORIGINS'])
 
 # Database configuration
-DATABASE = os.getenv('DATABASE', '/app/data/tasks.db')
+# DATABASE = os.getenv('DATABASE', '/app/data/tasks.db')
+DATABASE = os.environ.get('DATABASE', 'tasks.db')
 
 # USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', 'http://localhost:5001')
 # Replaced with config value
