@@ -1,98 +1,87 @@
-# docker-compose.yml (Root directory)
 version: '3.8'
 
 services:
   # User Service
   user-service:
-    build: 
-      context: ./user_service
-      dockerfile: Dockerfile
-    container_name: user-service
+    build: ./user_service
     ports:
-      - "5001:5001"
-    environment:
-      - PORT=5001
-      - DEBUG=false
-      # Add DATABASE
-      - DATABASE=/app/data/users.db
+      - "${USER_SERVICE_PORT:-5001}:5001"
     volumes:
-      #- user_data:/app/data (replaced)
-      # move data to host machine for persistence
+      # Persist SQLite database
       - ./data/user_service:/app/data
-    networks:
-      - microservices
-    restart: unless-stopped
+    env_file:
+      # Load environment variables from file
+      - ./user_service/.env.${ENVIRONMENT:-development}
+    environment:
+      # Override specific variables for Docker
+      - FLASK_ENV=${ENVIRONMENT:-development}
+      - DATABASE=/app/data/users.db
+      - HOST=0.0.0.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # Task Service
-  task-service:
-    build: 
-      context: ./task_service
-      dockerfile: Dockerfile
-    container_name: task-service
-    ports:
-      - "5002:5002"
-    environment:
-      - PORT=5002
-      - DEBUG=false
-      - USER_SERVICE_URL=http://user-service:5001
-      # Add DATABASE
-      - DATABASE=/app/data/tasks.db
-    volumes:
-      #- task_data:/app/data (replaced)
-      - ./data/task_service:/app/data
     networks:
-      - microservices
+      - task-manager-network
+
+  # Task Service  
+  task-service:
+    build: ./task_service
+    ports:
+      - "${TASK_SERVICE_PORT:-5002}:5002"
+    volumes:
+      # Persist SQLite database
+      - ./data/task_service:/app/data
+    env_file:
+      - ./task_service/.env.${ENVIRONMENT:-development}
+    environment:
+      - FLASK_ENV=${ENVIRONMENT:-development}
+      - DATABASE=/app/data/tasks.db
+      - HOST=0.0.0.0
+      # Use Docker service name for internal communication
+      - USER_SERVICE_URL=http://user-service:5001
     depends_on:
       user-service:
         condition: service_healthy
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - task-manager-network
 
-  # Frontend
+  # Frontend (React App)
   frontend:
     build: 
       context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend
+      args:
+        # Pass build-time environment variables
+        - REACT_APP_USER_SERVICE_URL=${REACT_APP_USER_SERVICE_URL:-http://localhost:5001/api}
+        - REACT_APP_TASK_SERVICE_URL=${REACT_APP_TASK_SERVICE_URL:-http://localhost:5002/api}
+        - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
     ports:
-      - "3000:80"
-    networks:
-      - microservices
+      - "3000:3000"
     depends_on:
-      user-service:
-        condition: service_healthy
-      task-service:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - user-service
+      - task-service
+    environment:
+      # Runtime environment variables for the container
+      - NODE_ENV=${ENVIRONMENT:-development}
+    networks:
+      - task-manager-network
 
-networks:
-  microservices:
-    driver: bridge
-    name: task-manager-network
-
+# Named volumes for easier management and backup
 volumes:
   user_data:
-    name: task-manager-user-data
-    # local storage for user data
     driver: local
-  task_data:
-    name: task-manager-task-data
-    # local storage for task data
+  task_data:  
     driver: local
+
+# Custom network for service communication
+networks:
+  task-manager-network:
+    driver: bridge
