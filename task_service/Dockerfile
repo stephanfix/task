@@ -16,7 +16,7 @@ COPY . .
 RUN mkdir -p /app/data
 
 # Expose port
-EXPOSE 5002
+EXPOSE 6002
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
