@@ -14,7 +14,7 @@ class Config:
     
     # Server Settings
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5001))
+    PORT = int(os.getenv('PORT', 6001))
     
     # CORS Settings
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
