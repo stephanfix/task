@@ -1,0 +1,38 @@
+NAME                                READY   STATUS    RESTARTS      AGE
+pod/frontend-dfd54dcf8-8gdwd        1/1     Running   7 (73m ago)   110d
+pod/frontend-dfd54dcf8-hqqjp        1/1     Running   8 (73m ago)   110d
+pod/task-service-6d5fc67f68-kblf5   1/1     Running   1 (13d ago)   98d
+pod/task-service-6d5fc67f68-pnmth   1/1     Running   1 (13d ago)   98d
+pod/user-service-64b5976b86-bhzk9   1/1     Running   3 (13d ago)   110d
+pod/user-service-64b5976b86-ff7np   1/1     Running   4 (13d ago)   110d
+
+NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+service/frontend       NodePort    10.107.95.46     <none>        80:30080/TCP   110d
+service/task-service   ClusterIP   10.111.1.123     <none>        5002/TCP       110d
+service/user-service   ClusterIP   10.103.231.123   <none>        5001/TCP       110d
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/frontend       2/2     2            2           110d
+deployment.apps/task-service   2/2     2            2           110d
+deployment.apps/user-service   2/2     2            2           110d
+
+NAME                                      DESIRED   CURRENT   READY   AGE
+replicaset.apps/frontend-dfd54dcf8        2         2         2       110d
+replicaset.apps/task-service-56b8c7ddb5   0         0         0       110d
+replicaset.apps/task-service-6d5fc67f68   2         2         2       98d
+replicaset.apps/task-service-6d9b4fbb44   0         0         0       110d
+replicaset.apps/user-service-64b5976b86   2         2         2       110d
+NAME                            READY   STATUS    RESTARTS      AGE
+frontend-dfd54dcf8-8gdwd        1/1     Running   7 (73m ago)   110d
+frontend-dfd54dcf8-hqqjp        1/1     Running   8 (73m ago)   110d
+task-service-6d5fc67f68-kblf5   1/1     Running   1 (13d ago)   98d
+task-service-6d5fc67f68-pnmth   1/1     Running   1 (13d ago)   98d
+user-service-64b5976b86-bhzk9   1/1     Running   3 (13d ago)   110d
+user-service-64b5976b86-ff7np   1/1     Running   4 (13d ago)   110d
+NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+frontend       NodePort    10.107.95.46     <none>        80:30080/TCP   110d
+task-service   ClusterIP   10.111.1.123     <none>        5002/TCP       110d
+user-service   ClusterIP   10.103.231.123   <none>        5001/TCP       110d
+NAME               STATUS   VOLUME            CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+task-service-pvc   Bound    task-service-pv   1Gi        RWO            manual         <unset>                 110d
+user-service-pvc   Bound    user-service-pv   1Gi        RWO            manual         <unset>                 110d

@@ -8,15 +8,12 @@ metadata:
     app: user-service
     tier: backend
 spec:
-  # How many copies of this service to run
   replicas: 2
   
-  # How to find the pods this deployment manages
   selector:
     matchLabels:
       app: user-service
   
-  # Template for creating pods
   template:
     metadata:
       labels:
@@ -25,43 +22,69 @@ spec:
     spec:
       containers:
       - name: user-service
-        # For now, we'll build and use local images
-        # We'll improve this in later projects
-        image: user-service:latest
-        imagePullPolicy: Never  # Use local image, don't pull from registry
+        image: user-service:v2
+        imagePullPolicy: Never
         
         ports:
-        - containerPort: 5001
+        - containerPort: 6001
           name: http
         
-        # Environment variables
+        # Environment variables from ConfigMap and Secret
         env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: FLASK_ENV
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: USER_SERVICE_PORT
         - name: DATABASE
-          value: "/app/data/users.db"
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: USER_SERVICE_DATABASE
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: CORS_ORIGINS
         - name: DEBUG
-          value: "True"
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: DEBUG
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: task-manager-secrets
+              key: SECRET_KEY
         
-        # Volume mount for database persistence
         volumeMounts:
         - name: user-data
           mountPath: /app/data
         
-        # Health checks (we'll implement the endpoint later)
         livenessProbe:
           httpGet:
             path: /health
-            port: 5001
-          initialDelaySeconds: 10
-          periodSeconds: 30
+            port: 6001
+          initialDelaySeconds: 30
+          periodSeconds: 10
         
         readinessProbe:
           httpGet:
             path: /health
-            port: 5001
-          initialDelaySeconds: 5
-          periodSeconds: 10
+            port: 6001
+          initialDelaySeconds: 10
+          periodSeconds: 5
         
-        # Resource limits (prevents one container from using all resources)
         resources:
           requests:
             memory: "128Mi"
@@ -70,7 +93,6 @@ spec:
             memory: "256Mi"
             cpu: "500m"
       
-      # Volume definition
       volumes:
       - name: user-data
         persistentVolumeClaim:

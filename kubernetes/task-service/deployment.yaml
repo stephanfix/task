@@ -22,21 +22,55 @@ spec:
     spec:
       containers:
       - name: task-service
-        image: task-service:latest
+        image: task-service:v2
         imagePullPolicy: Never
         
         ports:
         - containerPort: 5002
           name: http
         
+        # Environment variables from ConfigMap and Secret
         env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: FLASK_ENV
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: TASK_SERVICE_PORT
         - name: DATABASE
-          value: "/app/data/tasks.db"
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: TASK_SERVICE_DATABASE
         - name: USER_SERVICE_URL
-          # Note: Using the Kubernetes service name
-          value: "http://user-service.task-manager.svc.cluster.local:5001"
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: USER_SERVICE_URL
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: CORS_ORIGINS
         - name: DEBUG
-          value: "True"
+          valueFrom:
+            configMapKeyRef:
+              name: task-manager-config
+              key: DEBUG
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: task-manager-secrets
+              key: SECRET_KEY
         
         volumeMounts:
         - name: task-data
@@ -45,16 +79,16 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 5002
-          initialDelaySeconds: 10
-          periodSeconds: 30
+            port: 6002
+          initialDelaySeconds: 30
+          periodSeconds: 10
         
         readinessProbe:
           httpGet:
             path: /health
-            port: 5002
-          initialDelaySeconds: 5
-          periodSeconds: 10
+            port: 6002
+          initialDelaySeconds: 10
+          periodSeconds: 5
         
         resources:
           requests:

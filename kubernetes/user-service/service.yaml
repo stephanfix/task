@@ -18,6 +18,6 @@ spec:
   # Port mapping
   ports:
   - name: http
-    port: 5001        # Port other services use to connect
-    targetPort: 5001  # Port on the container
+    port: 6001        # Port other services use to connect
+    targetPort: 6001  # Port on the container
     protocol: TCP

@@ -1,0 +1,21 @@
+# kubernetes/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: task-manager-config
+  namespace: task-manager
+data:
+  # User Service Configuration
+  FLASK_ENV: "production"
+  HOST: "0.0.0.0"
+  USER_SERVICE_PORT: "6001"
+  USER_SERVICE_DATABASE: "/app/data/users.db"
+  CORS_ORIGINS: "*"
+  
+  # Task Service Configuration
+  TASK_SERVICE_PORT: "6002"
+  TASK_SERVICE_DATABASE: "/app/data/tasks.db"
+  USER_SERVICE_URL: "http://user-service.task-manager.svc.cluster.local:6001"
+  
+  # Set DEBUG to false for production
+  DEBUG: "false"

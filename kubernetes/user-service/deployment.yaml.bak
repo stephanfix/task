@@ -1,0 +1,77 @@
+# kubernetes/user-service/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: task-manager
+  labels:
+    app: user-service
+    tier: backend
+spec:
+  # How many copies of this service to run
+  replicas: 2
+  
+  # How to find the pods this deployment manages
+  selector:
+    matchLabels:
+      app: user-service
+  
+  # Template for creating pods
+  template:
+    metadata:
+      labels:
+        app: user-service
+        tier: backend
+    spec:
+      containers:
+      - name: user-service
+        # For now, we'll build and use local images
+        # We'll improve this in later projects
+        image: user-service:latest
+        imagePullPolicy: Never  # Use local image, don't pull from registry
+        
+        ports:
+        - containerPort: 5001
+          name: http
+        
+        # Environment variables
+        env:
+        - name: DATABASE
+          value: "/app/data/users.db"
+        - name: DEBUG
+          value: "True"
+        
+        # Volume mount for database persistence
+        volumeMounts:
+        - name: user-data
+          mountPath: /app/data
+        
+        # Health checks (we'll implement the endpoint later)
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        
+        # Resource limits (prevents one container from using all resources)
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      
+      # Volume definition
+      volumes:
+      - name: user-data
+        persistentVolumeClaim:
+          claimName: user-service-pvc

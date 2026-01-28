@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { User, CheckCircle, Clock, AlertCircle, Plus, Edit3, Trash2, LogOut, UserPlus, LogIn } from 'lucide-react';
 
 // const API_BASE = {
-//   users: 'http://localhost:5001/api',
-//   tasks: 'http://localhost:5002/api'
+//   users: 'http://localhost:6001/api',
+//   tasks: 'http://localhost:6002/api'
 // };
 
 // Configuration management - read from environment variables
@@ -156,7 +156,7 @@ const TaskManagementApp = () => {
         showError(data.error || 'Authentication failed');
       }
     } catch (error) {
-      showError('Unable to connect to user service. Make sure it\'s running on port 5001.');
+      showError('Unable to connect to user service. Make sure it\'s running on port 6001.');
     }
     
     setLoading(false);
@@ -178,7 +178,7 @@ const TaskManagementApp = () => {
         showError('Failed to load tasks');
       }
     } catch (error) {
-      showError('Unable to connect to task service. Make sure it\'s running on port 5002.');
+      showError('Unable to connect to task service. Make sure it\'s running on port 6002.');
     }
   };
 
